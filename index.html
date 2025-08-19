@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>مدير الحسابات 🌸</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      direction: rtl; 
+      text-align: center; 
+      background:#ffe6f0; /* بينك فاتح */
+      overflow-x: hidden;
+    }
+    h1 { color: #d63384; }
+    .account { 
+      margin: 10px auto; 
+      padding: 10px; 
+      border: 1px solid #f3c2d4; 
+      border-radius: 10px; 
+      width: 60%; 
+      background: white;
+      box-shadow: 0 0 10px rgba(214, 51, 132, 0.2);
+    }
+    .done { background-color: #f8d7e8; }
+    button {
+      padding: 5px 10px;
+      margin: 2px;
+      border: none;
+      border-radius: 5px;
+      background: #ff69b4;
+      color: white;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover { background: #d63384; }
+    .timer { font-size: 0.9em; color: #555; }
+    .flower {
+      position: fixed;
+      top: -50px;
+      font-size: 24px;
+      animation: fall 6s linear infinite;
+    }
+    @keyframes fall {
+      0% { transform: translateY(-50px) rotate(0deg); opacity:1; }
+      100% { transform: translateY(110vh) rotate(360deg); opacity:0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>📋 الحسابات 🌸</h1>
+  <div id="accounts"></div>
+  <p id="status"></p>
+  <button onclick="resetAllConfirm()">♻️ ريسيت الكل</button>
+  <button onclick="openNote()">✏️ تعديل الحسابات</button>
+
+  <script>
+    const fs = require('fs');
+    const { exec } = require('child_process');
+
+    let accounts = [];
+    let progress = JSON.parse(localStorage.getItem("progress")) || [];
+
+    // تحميل الحسابات من ملف note.txt
+    function loadAccounts(){
+      if (fs.existsSync("note.txt")) {
+        const text = fs.readFileSync("note.txt", "utf8");
+        accounts = text.split("\n")
+          .map(line => line.trim())
+          .filter(Boolean)
+          .map(line => {
+            const [user, pass] = line.split("|").map(s => s.trim());
+            return {user, pass};
+          });
+        if(progress.length !== accounts.length){
+          progress = accounts.map(() => ({done:false, time:null}));
+        }
+        render();
+      } else {
+        document.getElementById("accounts").innerText = "❌ الملف note.txt مش موجود";
+      }
+    }
+
+    function render() {
+      const container = document.getElementById("accounts");
+      container.innerHTML = "";
+      let allDone = true;
+
+      accounts.forEach((acc, i) => {
+        const div = document.createElement("div");
+        div.className = "account " + (progress[i]?.done ? "done" : "");
+        
+        let timerText = "";
+        if (progress[i]?.done && progress[i].time) {
+          const diff = Math.floor((Date.now() - progress[i].time) / 1000);
+          const mins = Math.floor(diff/60);
+          const hrs = Math.floor(mins/60);
+          const days = Math.floor(hrs/24);
+          if (days > 0) timerText = `منذ ${days} يوم`;
+          else if (hrs > 0) timerText = `منذ ${hrs} ساعة`;
+          else if (mins > 0) timerText = `منذ ${mins} دقيقة`;
+          else timerText = `منذ ${diff} ثانية`;
+        }
+
+        div.innerHTML = `
+          <strong>${i+1}.</strong> 
+          👤 ${acc.user} | 🔑 ${acc.pass} 
+          ${progress[i]?.done ? 
+            `✅ <span class="timer">(${timerText})</span> <button onclick="resetOneConfirm(${i})">إعادة</button>` : 
+            `<button onclick="markDone(${i})">تم</button>`}
+        `;
+        container.appendChild(div);
+        if (!progress[i]?.done) allDone = false;
+      });
+
+      document.getElementById("status").innerText = 
+        allDone ? "🎉 كل الحسابات خلصت! 🌸" : "أكمل باقي الحسابات 👇";
+    }
+
+    function markDone(i) {
+      progress[i] = {done:true, time:Date.now()};
+      saveProgress();
+      render();
+    }
+
+    function resetOneConfirm(i) {
+      if (confirm("هل تريد عمل ريسيت لهذا الحساب فقط؟")) {
+        progress[i] = {done:false, time:null};
+        saveProgress();
+        render();
+      }
+    }
+
+    function resetAllConfirm() {
+      if (confirm("هل تريد عمل ريسيت لجميع الحسابات؟")) {
+        progress = accounts.map(() => ({done:false, time:null}));
+        saveProgress();
+        render();
+      }
+    }
+
+    function saveProgress() {
+      localStorage.setItem("progress", JSON.stringify(progress));
+    }
+
+    // تحديث التايمر كل 10 ثواني
+    setInterval(render, 10000);
+
+    // 🌸 زهور متطايرة
+    function createFlower() {
+      const flower = document.createElement("div");
+      flower.className = "flower";
+      flower.innerText = "🌸";
+      flower.style.left = Math.random() * window.innerWidth + "px";
+      flower.style.animationDuration = (4 + Math.random()*4) + "s";
+      document.body.appendChild(flower);
+      setTimeout(()=> flower.remove(), 7000);
+    }
+    setInterval(createFlower, 1500);
+
+    // زر تعديل الحسابات + تحديث بعد التعديل
+    function openNote(){
+      if (fs.existsSync("note.txt")) {
+        exec("notepad note.txt");
+        // ✅ تحديث بعد 2 ثانية من فتح الملف (عشان لو تعدل وتحفظ)
+        setTimeout(loadAccounts, 2000);
+      } else {
+        if (confirm("❌ الملف note.txt مش موجود. هل تحب أسويلك واحد جديد؟")) {
+          fs.writeFileSync("note.txt", "");
+          exec("notepad note.txt");
+          setTimeout(loadAccounts, 2000);
+        }
+      }
+    }
+
+    // مراقبة الملف بشكل مباشر: أي تعديل يحفظ → تحديث تلقائي
+    if (fs.existsSync("note.txt")) {
+      fs.watch("note.txt", () => {
+        loadAccounts();
+      });
+    }
+
+    // تحميل أولي
+    loadAccounts();
+  </script>
+</body>
+</html>
